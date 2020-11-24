@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>demo</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <style>
+    table,
+    th,
+    td {
+      border: 1px solid black;
+      text-align: center;
+    }
+
+    #app {
+      margin: 0 auto;
+      padding: 0 80px;
+      background-color: #e7dfd5;
+      width: 750px;
+      height: 1000px;
+      line-height: 30px;
+      font-size: 20px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app">
+    <br>
+    <h1 style="text-align:center">车牌识别系统平台界面</h1>
+    <p text-align: left>
+      <span>repository: </span>
+      <a href="https://github.com/ufownl/alpr_utils">https://github.com/ufownl/alpr_utils</a>
+    </p>
+    <p text-align: left>
+      <label for="server">server</label>
+      <input v-model="server" type="text" id="server" />
+    </p>
+    <p text-align: left>
+      <div>
+        <input type="file" accept="image/*" @change="chooseImage" :disabled="processing" />
+        <button @click="run" :disabled="processing">Run</button>
+      </div>
+    </p>
+    <div>{{message}}</div>
+    <p v-for="res in results">
+      <plate-table :result1s="res" />
+    </p>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.10"></script>
+  <script type="text/javascript">
+    Vue.component("plate-table", {
+      props: {
+        result1s: {
+          type: Array,
+          default: []
+        }
+      },
+      template: '\
+          <table border="1">\
+            <tr>\
+              <th>img</th>\
+              <th>plate</th>\
+              <th>result1</th>\
+            </tr>\
+            <tr v-for="res in result1s">\
+              <td><img v-if="res.image" :src="res.image" alt="image" width="200px" height="200px" /></td>\
+              <td><img v-if="res.plates" :src="res.plates" alt="plates" /></td>\
+              <td>{{res.labels}}</td>\
+            </tr>\
+          </table>\
+        '
+    })
+  </script>
+  <script type="text/javascript">
+    function get_param(name) {
+      let reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)')
+      let r = window.location.search.substr(1).match(reg)
+      if (r != null) {
+        return unescape(r[2])
+      }
+      return null
+    }
+    let server = get_param('server')
+    new Vue({
+      el: '#app',
+      data: {
+        server: server ? server : 'http://vac.show:7777',
+        image: undefined,
+        message: '',
+        processing: false,
+        results: []
+      },
+      methods: {
+        chooseImage(e) {
+          this.image = e.target.files[0]
+        },
+        run() {
+          if (!this.image) {
+            this.message = 'Please select an image file!'
+            return
+          }
+          this.message = 'Uploading and processing...'
+          this.processing = true
+          let form = new FormData()
+          form.append('image', this.image)
+          let url = encodeURI(this.server + '/demo/run')
+          let xhr = new XMLHttpRequest()
+          xhr.open('POST', url, true)
+          xhr.onload = () => {
+            if (xhr.readyState !== 4) {
+              return
+            }
+            this.processing = false
+            if (xhr.status !== 200) {
+              this.message = 'ERROR: HTTP status code (' + xhr.status + ')'
+              return
+            }
+            let resp = JSON.parse(xhr.response)
+            if (!resp.length) {
+              this.message = 'ERROR: Invalid response'
+              return
+            }
+            this.message = ''
+            this.results = resp
+          }
+          xhr.onerror = () => {
+            this.message = 'ERROR: Failed to call "' + url + '"'
+            this.processing = false
+          }
+          xhr.send(form)
+        }
+      }
+    })
+  </script>
+</body>
+
+</html>
